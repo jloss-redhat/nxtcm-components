@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/experimental-ct-react';
+import { test, expect } from '../../../ct-fixture';
 import React from 'react';
 import { RosaWizard } from './RosaWizard';
 import { RosaWizardErrorThenBackToReviewMount } from './RosaWizard.spec-helpers';

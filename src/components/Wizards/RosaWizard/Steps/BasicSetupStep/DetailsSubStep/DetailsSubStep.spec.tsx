@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/experimental-ct-react';
+import { test, expect } from '../../../../../../ct-fixture';
 import { checkAccessibility } from '../../../../../../test-helpers';
 import type { OpenShiftVersionsData, Resource, Role, SelectDropdownType } from '../../../../types';
 import { defaultRosaWizardStrings } from '../../../rosaWizardStrings.defaults';
