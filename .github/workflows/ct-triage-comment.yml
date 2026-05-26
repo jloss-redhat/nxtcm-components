@@ -1,0 +1,74 @@
+name: CT Triage Comment
+
+on:
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+
+permissions:
+  pull-requests: write
+  actions: read
+
+jobs:
+  comment:
+    name: Post CT triage comment
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          sparse-checkout: |
+            utils/ct-triage-comment.mjs
+            package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: 'package.json'
+
+      - name: Find PR number
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha }}"
+          REPO="${{ github.repository }}"
+
+          # works for same-repo branches
+          PR=$(gh api "repos/${REPO}/commits/${SHA}/pulls" --jq '.[0].number // empty' 2>/dev/null || echo "")
+
+          # fallback for fork PRs: commits API can't resolve fork SHAs,
+          # so search open PRs by head SHA instead
+          if [ -z "$PR" ]; then
+            PR=$(gh pr list --repo "$REPO" --state open --limit 200 --json number,headRefOid \
+              --jq ".[] | select(.headRefOid == \"${SHA}\") | .number" | head -1)
+          fi
+
+          echo "number=${PR}" >> "$GITHUB_OUTPUT"
+
+      - name: Download CT summary artifact
+        if: steps.pr.outputs.number
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: playwright-ct-report
+          path: ct-report
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Post triage comment
+        if: steps.pr.outputs.number
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SUMMARY="ct-report/test-results/playwright-ct-summary.json"
+          if [ ! -f "$SUMMARY" ]; then
+            echo "No summary JSON found, skipping"
+            exit 0
+          fi
+          BODY=$(node utils/ct-triage-comment.mjs --summary-json "$SUMMARY")
+          if [ -n "$BODY" ]; then
+            gh pr comment "${{ steps.pr.outputs.number }}" --body "$BODY"
+          fi

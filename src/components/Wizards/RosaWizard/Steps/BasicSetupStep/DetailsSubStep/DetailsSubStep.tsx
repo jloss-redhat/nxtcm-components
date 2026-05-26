@@ -76,6 +76,7 @@ export const DetailsSubStep: React.FunctionComponent<DetailsSubStepProps> = ({
 
   useResetFieldOnOptionsChange('cluster.region', regions.data);
   useResetFieldOnOptionsChange('cluster.machine_type', machineTypes.data, 'machinepools-sub-step');
+  useResetFieldOnOptionsChange('cluster.associated_aws_id', awsInfrastructureAccounts.data);
 
   React.useEffect(() => {
     if (awsBillingAccounts.isFetching) {
@@ -189,10 +190,10 @@ export const DetailsSubStep: React.FunctionComponent<DetailsSubStepProps> = ({
                     isFill
                     path="cluster.associated_aws_id"
                     label={d.awsInfraLabel}
+                    isPending={awsInfrastructureAccounts.isFetching}
                     placeholder={d.awsInfraPlaceholder}
                     labelHelp={d.awsInfraHelp}
                     options={awsInfrastructureAccounts.data}
-                    disabled={awsInfrastructureAccounts.isFetching}
                     required
                     refreshCallback={
                       awsInfrastructureAccounts.fetch
@@ -233,7 +234,7 @@ export const DetailsSubStep: React.FunctionComponent<DetailsSubStepProps> = ({
                 >
                   <WizSelect
                     isFill
-                    disabled={awsBillingAccounts.isFetching}
+                    isPending={awsBillingAccounts.isFetching}
                     path="cluster.billing_account_id"
                     label={d.billingLabel}
                     placeholder={d.billingPlaceholder}
@@ -331,7 +332,7 @@ export const DetailsSubStep: React.FunctionComponent<DetailsSubStepProps> = ({
                     placeholder={d.regionPlaceholder}
                     labelHelp={d.regionHelp}
                     options={regions.data}
-                    disabled={regions.isFetching}
+                    isPending={regions.isFetching}
                     onValueChange={(_value, item) => {
                       if (cluster.name) uniqueClusterNameCheck(cluster.name, _value as string);
                       delete item.cluster.selected_vpc;

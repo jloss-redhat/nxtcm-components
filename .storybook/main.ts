@@ -3,7 +3,7 @@ import path from 'path';
 
 const config: StorybookConfig = {
   stories: ['../src/**/*.mdx', '../src/**/*.stories.@(js|jsx|mjs|ts|tsx)'],
-  addons: ['@storybook/addon-docs'],
+  addons: ['@storybook/addon-docs', '@storybook/addon-themes'],
   framework: {
     name: '@storybook/react-vite',
     options: {},
@@ -26,7 +26,7 @@ const config: StorybookConfig = {
         },
       },
       optimizeDeps: {
-        include: ['ip-address', 'ip-cidr'],
+        include: ['ip-address', 'ip-cidr', 'monaco-editor', 'monaco-yaml'],
       },
     });
   },

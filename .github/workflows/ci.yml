@@ -6,23 +6,33 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version-file: '.nvmrc'
+          node-version-file: 'package.json'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
       - name: Install subpackage dependencies
         run: cd packages/react-form-wizard && npm ci
+
+      - name: Check lockfile for git-based dependencies
+        run: |
+          if grep -qE '"resolved":\s*"(git\+|git:|github:)' package-lock.json packages/react-form-wizard/package-lock.json; then
+            echo "::error::git-based dependency found in lockfile (supply chain risk)"
+            exit 1
+          fi
 
       - name: Run ESLint
         run: npm run lint
@@ -34,12 +44,12 @@ jobs:
     name: Type Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version-file: '.nvmrc'
+          node-version-file: 'package.json'
           cache: 'npm'
 
       - name: Install dependencies
@@ -54,12 +64,12 @@ jobs:
     name: Component Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version-file: '.nvmrc'
+          node-version-file: 'package.json'
           cache: 'npm'
 
       - name: Install dependencies
@@ -71,26 +81,53 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run Playwright component tests
-        run: npm run test:ct
+        id: ct_run
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/playwright-ct-results.json
+          PLAYWRIGHT_JUNIT_OUTPUT_NAME: test-results/playwright-ct-junit.xml
+        run: >-
+          npx playwright test -c playwright-ct.config.ts
+          --reporter=list,github,html,json,junit
+
+      - name: Build per-test CT summary
+        if: always()
+        run: |
+          node utils/summarize-playwright-ct.mjs \
+            --json test-results/playwright-ct-results.json \
+            --markdown test-results/playwright-ct-summary.md \
+            --summary-json test-results/playwright-ct-summary.json
+          if [ "${{ steps.ct_run.outcome }}" = "failure" ]; then
+            cat test-results/playwright-ct-summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload test report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: playwright-ct-report
-          path: playwright-report/
+          path: |
+            playwright-report/
+            test-results/playwright-ct-results.json
+            test-results/playwright-ct-junit.xml
+            test-results/playwright-ct-summary.md
+            test-results/playwright-ct-summary.json
           retention-days: 7
+
+      - name: Fail job if CT failed
+        if: steps.ct_run.outcome == 'failure'
+        run: exit 1
 
   build:
     name: Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version-file: '.nvmrc'
+          node-version-file: 'package.json'
           cache: 'npm'
 
       - name: Install dependencies
@@ -102,7 +139,7 @@ jobs:
         run: npm run build
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: dist
           path: dist/
@@ -112,12 +149,12 @@ jobs:
     name: E2E Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version-file: '.nvmrc'
+          node-version-file: 'package.json'
           cache: 'npm'
 
       - name: Install dependencies
@@ -132,7 +169,7 @@ jobs:
         run: npm run test:e2e
 
       - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: playwright-report
@@ -143,12 +180,12 @@ jobs:
     name: Build Storybook
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version-file: '.nvmrc'
+          node-version-file: 'package.json'
           cache: 'npm'
 
       - name: Install dependencies
@@ -160,9 +197,8 @@ jobs:
         run: npm run build-storybook
 
       - name: Upload Storybook build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: storybook-static
           path: storybook-static/
           retention-days: 7
-
